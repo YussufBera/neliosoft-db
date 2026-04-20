@@ -16,10 +16,14 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/seed-tenants.ts",
+    "db:migrate-legacy": "node --env-file=.env --import tsx scripts/migrate-legacy.ts",
+    "db:migrate-legacy:dry": "node --env-file=.env --import tsx scripts/migrate-legacy.ts --dry",
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0"
+    "@prisma/client": "^5.22.0",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
