@@ -1,0 +1,248 @@
+// Neliosoft unified schema
+// Shared across neliosoft, berber, friseursalon, nailart, and future partner sites.
+// Every customer-data table carries tenantId so one DB serves all partners.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum TenantType {
+  BARBER
+  HAIR
+  NAIL
+}
+
+enum TenantPlan {
+  TRIAL
+  PREMIUM
+  INACTIVE
+}
+
+enum MemberRole {
+  OWNER
+  STAFF
+  ADMIN
+}
+
+enum GlobalRole {
+  CUSTOMER
+  PARTNER
+  SUPERADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+// ─── Tenant ───────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  type        TenantType
+  name        String
+  domain      String?    @unique
+  plan        TenantPlan @default(TRIAL)
+  status      String     @default("active")
+  themeJson   Json       @default("{}")
+  contentJson Json       @default("{}")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  members            TenantMember[]
+  simpleAppointments SimpleAppointment[]
+  simpleServices     SimpleService[]
+  availability       BarberAvailability[]
+  artists            SimpleArtist[]
+  contactMessages    ContactMessage[]
+  jobApplications    JobApplication[]
+}
+
+model TenantMember {
+  tenantId String
+  userId   String
+  role     MemberRole @default(STAFF)
+  createdAt DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, userId])
+  @@index([userId])
+}
+
+// ─── Auth.js (standard adapter tables) ────────────────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  email         String?    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  globalRole    GlobalRole @default(CUSTOMER)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  memberships     TenantMember[]
+  bookings        SimpleAppointment[] @relation("UserBookings")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Partner data (all tenant-scoped) ─────────────────────────────────────────
+
+model SimpleAppointment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String?
+  phone     String?
+  date      String
+  time      String
+  services  String
+  total     Float
+  status    String   @default("pending")
+  barber    String?
+  locale    String   @default("tr")
+  userId    String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation("UserBookings", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, date])
+  @@index([tenantId, status])
+  @@index([userId])
+}
+
+model SimpleService {
+  id                String    @id @default(cuid())
+  tenantId          String
+  name_de           String
+  name_en           String
+  name_tr           String
+  name_ku           String?
+  name_ar           String?
+  price             Float
+  duration          Int
+  campaignPrice     Float?
+  campaignStartDate DateTime?
+  campaignEndDate   DateTime?
+  order             Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model BarberAvailability {
+  id          String   @id @default(cuid())
+  tenantId    String
+  barber      String
+  date        String
+  isOff       Boolean  @default(true)
+  closedHours String   @default("[]")
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, barber, date])
+  @@index([tenantId, date])
+}
+
+model SimpleArtist {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  specialty String
+  image     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String?
+  phone     String
+  message   String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+}
+
+model JobApplication {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  email       String
+  phone       String
+  message     String   @db.Text
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+}
