@@ -18,7 +18,7 @@
     "db:seed": "tsx scripts/seed-tenants.ts",
     "db:migrate-legacy": "node --env-file=.env --import tsx scripts/migrate-legacy.ts",
     "db:migrate-legacy:dry": "node --env-file=.env --import tsx scripts/migrate-legacy.ts --dry",
-    "postinstall": "prisma generate"
+    "_postinstall_disabled": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
