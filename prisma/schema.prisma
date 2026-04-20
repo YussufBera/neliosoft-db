@@ -55,6 +55,9 @@ model Tenant {
   domain      String?    @unique
   plan        TenantPlan @default(TRIAL)
   status      String     @default("active")
+  city        String?
+  address     String?    @db.Text
+  zipCode     String?
   themeJson   Json       @default("{}")
   contentJson Json       @default("{}")
   createdAt   DateTime   @default(now())
@@ -90,6 +93,7 @@ model User {
   emailVerified DateTime?
   name          String?
   image         String?
+  password      String?
   globalRole    GlobalRole @default(CUSTOMER)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
